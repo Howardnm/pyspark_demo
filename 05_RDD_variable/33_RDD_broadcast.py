@@ -1,8 +1,6 @@
 # coding:utf8
-import time
 
 from pyspark import SparkConf, SparkContext
-from pyspark.storagelevel import StorageLevel
 
 if __name__ == '__main__':
     conf = SparkConf().setAppName("test").setMaster("local[*]")
@@ -17,6 +15,8 @@ if __name__ == '__main__':
     # 广播变量: 将本地集合对象 进行广播, 每个Executor只会获取一份本地集合对象
     # 1. 网络IO次数少
     # 2. Executor内存占用低
+
+    # 如果本地集合对象数据过大, 那么不适合使用广播变量, 而是应该将本地集合对象转换为RDD, 然后进行join操作
 
     stu_info_list = [(1, '张大仙', 11),
                      (2, '王晓晓', 13),
@@ -62,3 +62,6 @@ if __name__ == '__main__':
 1. 网络IO的次数
 2. Executor的内存占用
 """
+
+# 输出结果
+# [('张大仙', '语文', 99), ('王晓晓', '数学', 99), ('张甜甜', '英语', 99), ('王大力', '编程', 99), ('张大仙', '语文', 99), ('王晓晓', '编程', 99), ('张甜甜', '语文', 99), ('王大力', '英语', 99), ('张大仙', '语文', 99), ('张甜甜', '英语', 99), ('王晓晓', '编程', 99)]
