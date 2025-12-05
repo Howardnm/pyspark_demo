@@ -3,7 +3,11 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.storagelevel import StorageLevel
 from pyspark.sql.types import StringType
+import os
 
+os.environ['HADOOP_CONF_DIR'] = "/export/server/hadoop/etc/hadoop"
+os.environ['JAVA_HOME'] = "/export/server/jdk"
+os.environ['HADOOP_USER_NAME'] = 'hadoop'
 """
 需求1: 各省销售额的统计
 需求2: TOP3销售省份中, 有多少店铺达到过日销售额1000+
@@ -23,24 +27,26 @@ storeID:店铺ID
 
 
 if __name__ == '__main__':
-    spark = SparkSession.builder.\
-        appName("SparkSQL Example").\
-        master("local[*]").\
-        config("spark.sql.shuffle.partitions", "2").\
-        config("spark.sql.warehouse.dir", "hdfs://node1:8020/user/hive/warehouse").\
-        config("hive.metastore.uris", "thrift://node3:9083").\
-        enableHiveSupport().\
-        getOrCreate()
+    spark = (SparkSession.builder
+             .appName("sparkSQL Example")
+             .master("yarn")
+             .config("spark.sql.shuffle.partitions", 3)
+             .config("spark.sql.warehouse.dir", "hdfs://ct104:8020/user/hive/warehouse")
+             .config("hive.metastore.uris", "thrift://ct104:9083")
+             .enableHiveSupport()
+             .getOrCreate()
+             )
 
     # 1. 读取数据
     # 省份信息, 缺失值过滤, 同时省份信息中 会有"null" 字符串
     # 订单的金额, 数据集中有的订单的金额是单笔超过10000的, 这些是测试数据
     # 列值裁剪(SparkSQL会自动做这个优化)
-    df = spark.read.format("json").load("../../data/input/mini.json").\
-        dropna(thresh=1, subset=['storeProvince']).\
-        filter("storeProvince != 'null'").\
-        filter("receivable < 10000").\
-        select("storeProvince", "storeID", "receivable", "dateTS", "payType")
+    df = (spark.read.format("json")
+          .load("hdfs://ct104:8020/mini.json")
+          .dropna(thresh=1, subset=['storeProvince'])  # 省份缺失数据清洗
+          .filter("storeProvince != 'null'")  # 过滤字符串为“null”的省份
+          .filter("receivable < 10000")  # 过滤测试数据
+          ).select("storeProvince", "storeID", "receivable", "dateTS", "payType")  # 列值裁剪
 
     # TODO 需求1: 各省 销售额统计
     province_sale_df = df.groupBy("storeProvince").sum("receivable").\
@@ -52,10 +58,10 @@ if __name__ == '__main__':
     # 写出MySQL
     province_sale_df.write.mode("overwrite").\
         format("jdbc").\
-        option("url", "jdbc:mysql://node1:3306/bigdata?useSSL=false&useUnicode=true&characterEncoding=utf8").\
+        option("url", "jdbc:mysql://ct104:3306/bigdata?useSSL=false&useUnicode=true&characterEncoding=utf8").\
         option("dbtable", "province_sale").\
         option("user", "root").\
-        option("password", "2212072ok1").\
+        option("password", "123456").\
         option("encoding", "utf-8").\
         save()
 
@@ -91,10 +97,10 @@ if __name__ == '__main__':
     # 写出MySQL
     province_hot_store_count_df.write.mode("overwrite").\
         format("jdbc").\
-        option("url", "jdbc:mysql://node1:3306/bigdata?useSSL=false&useUnicode=true&characterEncoding=utf8").\
+        option("url", "jdbc:mysql://ct104:3306/bigdata?useSSL=false&useUnicode=true&characterEncoding=utf8").\
         option("dbtable", "province_hot_store_count").\
         option("user", "root").\
-        option("password", "2212072ok1").\
+        option("password", "123456").\
         option("encoding", "utf-8").\
         save()
     # 写出Hive
@@ -128,18 +134,22 @@ if __name__ == '__main__':
 
     top3_province_df_joined.createTempView("province_pay")
 
+    # 定义UDF函数，进行追加百分号操作
     def udf_func(percent):
         return str(round(percent * 100, 2)) + "%"
     # 注册UDF
     my_udf = F.udf(udf_func, StringType())
-
+    # 通过窗口函数实现
     pay_type_df = spark.sql("""
-        SELECT storeProvince, payType, (COUNT(payType) / total) AS percent FROM
-        (SELECT storeProvince, payType, count(1) OVER(PARTITION BY storeProvince) AS total FROM province_pay) AS sub
+        SELECT storeProvince, payType, (COUNT(payType) / total) AS percent 
+        FROM (SELECT storeProvince, payType, count(1) OVER(PARTITION BY storeProvince) AS total FROM province_pay) AS sub
         GROUP BY storeProvince, payType, total
     """).withColumn("percent", my_udf("percent"))
 
+
     pay_type_df.show()
+
+
     pay_type_df.write.mode("overwrite").\
         format("jdbc").\
         option("url", "jdbc:mysql://node1:3306/bigdata?useSSL=false&useUnicode=true&characterEncoding=utf8").\
