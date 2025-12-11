@@ -10,6 +10,7 @@ consumer = KafkaConsumer(
     group_id="mygp",    # 组id
     bootstrap_servers=['ct104:9092', 'ct105:9092', 'ct106:9092'],    # broker地址
     enable_auto_commit=False, # 关闭自动提交偏移量, 默认是True
+    auto_commit_interval_ms=5000, # 自动提交偏移量的时间间隔，默认5000毫秒（开启enable_auto_commit=True才生效）
     auto_offset_reset='earliest'  # 当没有初始偏移量或当前偏移量在服务器上不存在时使用(默认latest从最新位置开始消费, earliest从最早位置开始消费)
 )
 
