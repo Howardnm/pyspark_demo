@@ -4,17 +4,20 @@
 # 导入KafkaConsumer对象
 from kafka import KafkaConsumer
 
+
+# TODO: group_id参数指定消费者组id, 同一个组id的消费者实例会均摊消费topic中的消息
+# 如果没有指定group_id参数，则每个消费者实例都是独立的，互不影响，都会消费topic中的所有消息
+# 作用：实现消息的负载均衡消费
+# 例如，有一个topic中有100条消息，有两个消费者实例A和B，它们的group_id都设置为"mygp"
+# 那么A和B会均摊消费这100条消息，假设A消费了60条，B消费了40条，这样就实现了负载均衡
+
 # 构建KafkaConsumer对象
 consumer = KafkaConsumer(
     'testpython',  # topic
     group_id="mygp",    # 组id
     bootstrap_servers=['ct104:9092', 'ct105:9092', 'ct106:9092'],    # broker地址
-    enable_auto_commit=False, # 关闭自动提交偏移量, 默认是True
-    auto_commit_interval_ms=5000, # 自动提交偏移量的时间间隔，默认5000毫秒（开启enable_auto_commit=True才生效）
-    auto_offset_reset='earliest'  # 当没有初始偏移量或当前偏移量在服务器上不存在时使用(默认latest从最新位置开始消费, earliest从最早位置开始消费)
 )
 
-# TODO: 关闭自动提交偏移量, 此时每次启动消费者, 都会从上次提交的偏移量开始消费数据，导致重复消费
 
 # 通过for循环从consumer对象中取出message对象
 for message in consumer:
@@ -32,5 +35,3 @@ for message in consumer:
     print(f"取出数据，key是：{key}")
     print(f"取出数据，value是：{value}")
 
-# TODO : 手动提交偏移量，就可以避免重复消费
-    consumer.commit() # 手动提交偏移量，消费一条数据就提交一次偏移量
