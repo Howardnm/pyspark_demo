@@ -1,22 +1,26 @@
 # coding:utf8
 import string
 import time
-
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StringType, IntegerType, ArrayType
 import pandas as pd
 from pyspark.sql import functions as F
+import os
 
+os.environ['HADOOP_CONF_DIR'] = "/export/server/hadoop/etc/hadoop"
+os.environ['JAVA_HOME'] = "/export/server/jdk"
+os.environ['HADOOP_USER_NAME'] = 'hadoop'
 
 if __name__ == '__main__':
     # 0. 构建执行环境入口对象SparkSession
     spark = (SparkSession.builder
              .appName("test")
-             .master("local[*]") # 本地运行
+             # .master("local[*]") # 本地运行
+             .master("yarn") # yarn运行
              .config("spark.sql.shuffle.partitions", 2)
-
-             .config("spark.sql.warehouse.dir", "hdfs://ct104:8020/user/hive/warehouse")
-             .config("hive.metastore.uris", "thrift://ct104:9083")
+             # .config("spark.sql.warehouse.dir", "hdfs://ct104:8020/user/hive/warehouse")
+             .config("spark.sql.warehouse.dir", "hdfs://mycluster/user/hive/warehouse")
+             .config("hive.metastore.uris", "thrift://ct104:9083,thrift://ct105:9083")
              .enableHiveSupport()
              .getOrCreate()
              )
@@ -24,10 +28,15 @@ if __name__ == '__main__':
     # hive.metastore.uris      配置hive metastore的地址
     # .enableHiveSupport()     启用hive支持
 
-    sc = spark.sparkContext
+    # sc = spark.sparkContext
 
-    spark.sql("SELECT * FROM test").show()
     spark.sql("show databases").show()
+
+    # spark.sql("SELECT * FROM test").show()
+    # spark.sql("""select sum(sender_lng)
+    #              from db_msg.tb_msg_etl;
+    #           """).show()
+
     # +---------+
     # |namespace|
     # +---------+
