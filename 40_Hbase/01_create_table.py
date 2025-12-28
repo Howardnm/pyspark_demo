@@ -1,6 +1,23 @@
 # coding:utf8
 """
 演示使用happybase库，操作HBase创建表
+
+### 前期准备：
+    - Hbase 的 pyhton api 需要安装一个第三方的库：`happybase`
+    - Hbase 需要启动 ThriftServer 服务
+1、安装HappyBase库（我就在ct104）
+    # 切换到spark、python3.8的虚拟环境：
+    conda activate pyspark
+    # 安装happybase库
+    pip install happybase
+
+2、在其中一台HBase服务器，安装相关依赖
+    yum -y install automake libtool flex bison pkgconfig gcc-c++ boost-devel libevent-devel zlib-devel python-devel ruby-devel openssl-devel
+    # 启动HBase的ThriftServer，他的服务端口是：9090
+        su - hadoop
+        $HBASE_HOME/bin/hbase-daemon.sh start thrift
+    # 验证启动端口
+        netstat -anp|grep 9090
 """
 
 import happybase
