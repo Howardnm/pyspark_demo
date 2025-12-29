@@ -1,5 +1,8 @@
 # coding:utf8
 """
+这是一个数据模拟 => flume => kafka => python => hbase 案例
+请查看【Hbase笔记.md】的案例详细
+
 读取kafka写入hbase
 """
 from kafka import KafkaConsumer
